@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+
+const read = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8');
+
+// Final-head verification: selected tracks must hydrate both source inputs before generation.
+// Keep the standalone studio workflow intact while EZ-WAY supplies only its track integration actions.
+test('Album Cover Studio preserves the standalone workflow and EZ-WAY actions', () => {
+  const component = read('../components/AlbumCoverStudio.tsx');
+  const service = read('./albumCoverStudio.ts');
+
+  for (const label of ['Release + source material', 'Generated directions', 'Studio metrics', 'Input versions']) {
+    assert.match(component, new RegExp(label.replace(/[+]/g, '\\+')));
+  }
+  assert.match(component, /Analyze and generate/);
+  assert.match(component, /Generate Better/);
+  assert.match(component, /Fresh blend/);
+  assert.match(component, /Fresh audio path/);
+  assert.match(component, /Fresh lyric path/);
+  assert.match(component, /Save to EZ-WAY Track/);
+  assert.match(service, /collections\/\$\{encodeURIComponent\(collectionId\)\}\/versions/);
+  assert.match(service, /collections\/\$\{encodeURIComponent\(collectionId\)\}\/metrics/);
+  assert.match(service, /generations\/\$\{encodeURIComponent\(generationId\)\}\/improve/);
+  assert.match(service, /generations\/\$\{encodeURIComponent\(generationId\)\}\/retry/);
+});
+
+test('selected EZ-WAY track auto-loads its MP3 and saved lyrics into Album Cover Studio', () => {
+  const component = read('../components/AlbumCoverStudio.tsx');
+
+  assert.match(component, /loadTrackAudioFile\(selectedTrack\)/);
+  assert.match(component, /setAudioFile\(hydratedAudio\)/);
+  assert.match(component, /setLyricsText\(selectedTrack\.lyrics \|\| ''\)/);
+  assert.match(component, /Auto-loaded EZ-WAY MP3/);
+  assert.match(component, /Auto-loaded saved lyrics/);
+});
+
+test('global AudioPlayer is scoped to music workspace views instead of every page', () => {
+  const app = read('../App.tsx');
+
+  assert.match(app, /const shouldShowGlobalPlayer = \['dashboard', 'tracks', 'playlists'\]\.includes\(activeView\);/);
+  assert.match(app, /\{shouldShowGlobalPlayer && <AudioPlayer onEdit=\{\(track\) => setEditingTrack\(track\)\} \/>\}/);
+  assert.doesNotMatch(app, /\n\s*<AudioPlayer onEdit=\{\(track\) => setEditingTrack\(track\)\} \/>\n/);
+});
+
+test('Edit Metadata contains manual artwork and private browser-local lyric transcription', () => {
+  const modal = read('../components/EditTrackModal.tsx');
+
+  assert.match(modal, />Edit Metadata</);
+  assert.doesNotMatch(modal, /enter\.pollinations\.ai|gen\.pollinations\.ai|VITE_POLLINATIONS_CLIENT_ID|pollinationsKeyConnected|flux-realism|flux-anime|handleGenerateAiArt|aiPrompt|aiModel|aiAspect|aiSeed|artStyle/);
+  assert.match(modal, /handleDownloadArtwork/);
+  assert.match(modal, /imageInputRef/);
+  assert.match(modal, /runLocalAudioTool\(formData, 'lyrics'/);
+  assert.doesNotMatch(modal, /transcribe-lyrics-pollinations|POLLINATIONS_USER_KEY/);
+});
+
+test('Album Cover Studio exposes creative controls and sends them to the backend', () => {
+  const component = read('../components/AlbumCoverStudio.tsx');
+  const service = read('./albumCoverStudio.ts');
+  const router = read('../../album_cover_backend/app/routers/generations.py');
+  const renderPrompts = read('../../album_cover_backend/app/render_prompts.py');
+
+  for (const label of ['Creative Control', 'Subject / Scene', 'Style', 'Composition', 'Must include', 'Avoid', 'Creative strength']) {
+    assert.match(component, new RegExp(label.replace('/', '\\/')));
+  }
+  for (const field of ['subject_hint', 'scene_hint', 'style_preset', 'composition_preset', 'color_mood', 'must_include', 'avoid', 'creative_strength']) {
+    assert.match(service, new RegExp(field));
+    assert.match(router, new RegExp(field));
+  }
+  assert.match(renderPrompts, /build_creative_control_prompt/);
+  assert.match(renderPrompts, /Follow the user creative controls strictly/);
+});
+
+
+test('Album Cover major-label director gives the user six equal covers and selected-cover refinement', () => {
+  const service = read('./albumCoverStudio.ts');
+  const studio = read('../components/AlbumCoverStudio.tsx');
+  assert.match(service, /AlbumCoverVariationCount = 3 \| 4 \| 5 \| 6/);
+  assert.match(service, /reference_image/);
+  assert.match(service, /source_variation_id/);
+  assert.match(service, /release-text/);
+  assert.match(studio, /6 finished covers/);
+  assert.match(studio, /No AI winner/);
+  assert.match(studio, /Generate Better from Selected/);
+  assert.match(studio, /Artist \/ character reference/);
+  assert.doesNotMatch(studio, />AI winner</);
+  assert.doesNotMatch(studio, />AI runner-up</);
+});

@@ -1,0 +1,21 @@
+# Generated dependencies and build output
+node_modules/
+dist/
+.DS_Store
+
+# Python runtime/test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+local_lyric_optimizer/.env
+
+# Copied from the pinned FFmpeg package at build time
+public/video-engine/
+
+# Never commit live deployment secrets
+.env
+.env.*
+*.env
+!.env.example
+*.pem

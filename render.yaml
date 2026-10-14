@@ -3,6 +3,7 @@ services:
   - type: web
     name: ezway-supabase
     runtime: node
+    plan: free
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
